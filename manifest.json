@@ -1,6 +1,6 @@
 {
-  "name": "Mission Calculator",
-  "short_name": "MissionCalc",
+  "name": "Cr. Calculator",
+  "short_name": "Cr. Calc",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#121214",
