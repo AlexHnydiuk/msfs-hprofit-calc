@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#121214">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Mission Earnings Calculator</title>
+    
+    <!-- PWA Manifest embedded via Data URI -->
+    <link rel="manifest" href='data:application/manifest+json,{"name":"Mission Calculator","short_name":"MissionCalc","start_url":".","display":"standalone","background_color":"#121214","theme_color":"#121214","icons":[{"src":"data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>","sizes":"192x192 512x512","type":"image/svg+xml"}]}'>
+
+    <style>
+        :root {
+            --bg-color: #121214;
+            --card-bg: #1e1e24;
+            --input-bg: #2a2a32;
+            --border-color: #3f3f4c;
+            --text-main: #f0f0f5;
+            --text-muted: #8e8e9e;
+            --accent-color: #4f46e5;
+            
+            /* Status colors */
+            --color-low: #a1a1aa;     /* < 200k (Сірий) */
+            --color-med: #22c55e;     /* 200k-500k (Зелений) */
+            --color-high: #f59e0b;    /* > 500k (Золотий/Яскравий) */
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 16px;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 480px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        header {
+            text-align: center;
+            padding: 8px 0;
+        }
+
+        header h1 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 16px;
+            padding: 20px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Display Result Section */
+        .result-card {
+            text-align: center;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .result-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+        }
+
+        .result-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            line-height: 1.1;
+            color: var(--color-low);
+            transition: color 0.3s ease;
+            word-break: break-word;
+        }
+
+        .result-unit {
+            font-size: 1rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        /* Dynamic Status Styling */
+        .status-low { color: var(--color-low); }
+        .status-med { color: var(--color-med); text-shadow: 0 0 12px rgba(34, 197, 94, 0.2); }
+        .status-high { color: var(--color-high); text-shadow: 0 0 15px rgba(245, 158, 11, 0.3); }
+
+        /* Input Controls */
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        input[type="number"],
+        input[type="text"] {
+            width: 100%;
+            height: 54px;
+            background-color: var(--input-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 0 16px;
+            font-size: 1.2rem;
+            color: var(--text-main);
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input[type="number"]:focus,
+        input[type="text"]:focus {
+            border-color: var(--accent-color);
+        }
+
+        /* Toggle Switch for Time Mode */
+        .time-toggle-container {
+            display: flex;
+            background: var(--input-bg);
+            border-radius: 10px;
+            padding: 3px;
+            margin-bottom: 12px;
+            border: 1px solid var(--border-color);
+        }
+
+        .time-toggle-btn {
+            flex: 1;
+            padding: 8px 0;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .time-toggle-btn.active {
+            background-color: var(--card-bg);
+            color: var(--text-main);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        /* Checkbox Option */
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            background-color: var(--input-bg);
+            padding: 14px 16px;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            user-select: none;
+            margin-top: 8px;
+        }
+
+        .checkbox-group input {
+            width: 22px;
+            height: 22px;
+            accent-color: var(--accent-color);
+            margin-right: 12px;
+            cursor: pointer;
+        }
+
+        .checkbox-label {
+            font-size: 0.95rem;
+            color: var(--text-main);
+            font-weight: 500;
+        }
+
+        .checkbox-subtext {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        /* Action Buttons */
+        .btn-clear {
+            width: 100%;
+            height: 50px;
+            background-color: transparent;
+            border: 1px solid var(--border-color);
+            color: #ef4444;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: 12px;
+            cursor: pointer;
+            margin-top: 8px;
+            transition: background-color 0.2s;
+        }
+
+        .btn-clear:active {
+            background-color: rgba(239, 68, 68, 0.1);
+        }
+
+        /* History Section */
+        .history-title {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .history-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: var(--input-bg);
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            border-left: 4px solid var(--color-low);
+        }
+
+        .history-item.status-med { border-left-color: var(--color-med); }
+        .history-item.status-high { border-left-color: var(--color-high); }
+
+        .history-details {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .history-meta {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .history-rate {
+            font-weight: 700;
+            font-size: 1rem;
+        }
+
+        .empty-history {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            padding: 8px 0;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <header>
+        <h1>Калькулятор Місій</h1>
+    </header>
+
+    <!-- Main Result Display -->
+    <div class="card result-card" id="result-card">
+        <div class="result-label">Прибуток за годину</div>
+        <div class="result-value status-low" id="result-display">0</div>
+        <div class="result-unit">Credits / hr</div>
+    </div>
+
+    <!-- Inputs -->
+    <div class="card">
+        <!-- Credits Input -->
+        <div class="form-group">
+            <label for="credits">Сума винагороди (Credits)</label>
+            <input type="number" id="credits" inputmode="decimal" placeholder="напр. 250000" autocomplete="off">
+        </div>
+
+        <!-- Duration Mode Selector & Input -->
+        <div class="form-group">
+            <label>Тривалість місії</label>
+            <div class="time-toggle-container">
+                <button type="button" class="time-toggle-btn active" id="mode-min-btn" onclick="setTimeMode('min')">Хвилини</button>
+                <button type="button" class="time-toggle-btn" id="mode-hhmm-btn" onclick="setTimeMode('hhmm')">Год : Хв (HH:MM)</button>
+            </div>
+            
+            <input type="number" id="time-min" inputmode="numeric" placeholder="напр. 45 (хв)" autocomplete="off">
+            <input type="text" id="time-hhmm" inputmode="numeric" placeholder="01:30" autocomplete="off" style="display: none;">
+        </div>
+
+        <!-- Checkbox Options -->
+        <div class="checkbox-group" onclick="toggleCheckbox()">
+            <input type="checkbox" id="skip-cruise" onclick="event.stopPropagation()">
+            <div>
+                <span class="checkbox-label">Skip Cruise (-10%)</span>
+                <span class="checkbox-subtext">Відрахувати 10% для чистих грошей</span>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <button class="btn-clear" onclick="clearForm()">Очистити</button>
+    </div>
+
+    <!-- History -->
+    <div class="card">
+        <div class="history-title">Історія останніх 3 розрахунків</div>
+        <div class="history-list" id="history-list">
+            <div class="empty-history">Немає збережених розрахунків</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let timeMode = 'min'; // 'min' або 'hhmm'
+    let history = [];
+
+    // DOM Elements
+    const creditsInput = document.getElementById('credits');
+    const timeMinInput = document.getElementById('time-min');
+    const timeHhmmInput = document.getElementById('time-hhmm');
+    const skipCruiseCheckbox = document.getElementById('skip-cruise');
+    const resultDisplay = document.getElementById('result-display');
+    const historyList = document.getElementById('history-list');
+
+    // Event Listeners
+    creditsInput.addEventListener('input', calculate);
+    timeMinInput.addEventListener('input', calculate);
+    timeHhmmInput.addEventListener('input', handleHhmmInput);
+    skipCruiseCheckbox.addEventListener('change', calculate);
+
+    function setTimeMode(mode) {
+        timeMode = mode;
+        document.getElementById('mode-min-btn').classList.toggle('active', mode === 'min');
+        document.getElementById('mode-hhmm-btn').classList.toggle('active', mode === 'hhmm');
+
+        if (mode === 'min') {
+            timeMinInput.style.display = 'block';
+            timeHhmmInput.style.display = 'none';
+        } else {
+            timeMinInput.style.display = 'none';
+            timeHhmmInput.style.display = 'block';
+        }
+        calculate();
+    }
+
+    function toggleCheckbox() {
+        skipCruiseCheckbox.checked = !skipCruiseCheckbox.checked;
+        calculate();
+    }
+
+    // Auto-format HH:MM input
+    function handleHhmmInput(e) {
+        let val = e.target.value.replace(/\D/g, '');
+        if (val.length > 4) val = val.substring(0, 4);
+
+        if (val.length >= 3) {
+            e.target.value = val.substring(0, val.length - 2) + ':' + val.substring(val.length - 2);
+        } else {
+            e.target.value = val;
+        }
+        calculate();
+    }
+
+    function parseDurationInHours() {
+        if (timeMode === 'min') {
+            const mins = parseFloat(timeMinInput.value);
+            return (mins && mins > 0) ? mins / 60 : 0;
+        } else {
+            const val = timeHhmmInput.value;
+            if (!val.includes(':')) {
+                const mins = parseFloat(val);
+                return (mins && mins > 0) ? mins / 60 : 0;
+            }
+            const parts = val.split(':');
+            const hrs = parseInt(parts[0], 10) || 0;
+            const mins = parseInt(parts[1], 10) || 0;
+            const totalMins = (hrs * 60) + mins;
+            return totalMins > 0 ? totalMins / 60 : 0;
+        }
+    }
+
+    function calculate() {
+        const rawCredits = parseFloat(creditsInput.value);
+        const durationHours = parseDurationInHours();
+
+        if (!rawCredits || rawCredits <= 0 || !durationHours || durationHours <= 0) {
+            updateResultDisplay(0);
+            return;
+        }
+
+        let finalCredits = rawCredits;
+        if (skipCruiseCheckbox.checked) {
+            finalCredits *= 0.9; // Віднімаємо 10%
+        }
+
+        const hourlyRate = Math.round(finalCredits / durationHours);
+        updateResultDisplay(hourlyRate);
+
+        // Збереження в історію при повному вводі
+        saveToHistoryThrottled(rawCredits, durationHours, finalCredits, hourlyRate, skipCruiseCheckbox.checked);
+    }
+
+    function updateResultDisplay(rate) {
+        resultDisplay.textContent = formatNumber(rate);
+
+        // Колірна індикація
+        resultDisplay.classList.remove('status-low', 'status-med', 'status-high');
+
+        if (rate < 200000) {
+            resultDisplay.classList.add('status-low');
+        } else if (rate <= 500000) {
+            resultDisplay.classList.add('status-med');
+        } else {
+            resultDisplay.classList.add('status-high');
+        }
+    }
+
+    function formatNumber(num) {
+        return num.toLocaleString('en-US').replace(/,/g, ' ');
+    }
+
+    // Debounce для запізнення додавання в історію під час набору
+    let historyTimeout = null;
+    function saveToHistoryThrottled(rawCredits, durationHours, finalCredits, hourlyRate, isSkip) {
+        clearTimeout(historyTimeout);
+        historyTimeout = setTimeout(() => {
+            addToHistory(rawCredits, durationHours, hourlyRate, isSkip);
+        }, 1200); // Додає в історію, якщо користувач зупинив ввід на 1.2 сек
+    }
+
+    function addToHistory(credits, durationHours, rate, isSkip) {
+        const durationMin = Math.round(durationHours * 60);
+        const newItem = {
+            id: Date.now(),
+            credits: credits,
+            durationStr: `${durationMin} хв`,
+            rate: rate,
+            isSkip: isSkip
+        };
+
+        // Запобігання дублюванню однакових підряд записів
+        if (history.length > 0) {
+            const last = history[0];
+            if (last.credits === newItem.credits && last.rate === newItem.rate && last.isSkip === newItem.isSkip) {
+                return;
+            }
+        }
+
+        history.unshift(newItem);
+        if (history.length > 3) {
+            history.pop();
+        }
+        renderHistory();
+    }
+
+    function renderHistory() {
+        if (history.length === 0) {
+            historyList.innerHTML = '<div class="empty-history">Немає збережених розрахунків</div>';
+            return;
+        }
+
+        historyList.innerHTML = history.map(item => {
+            let statusClass = 'status-low';
+            if (item.rate >= 200000 && item.rate <= 500000) statusClass = 'status-med';
+            if (item.rate > 500000) statusClass = 'status-high';
+
+            return `
+                <div class="history-item ${statusClass}">
+                    <div class="history-details">
+                        <span><strong>${formatNumber(item.credits)}</strong> CR ${item.isSkip ? '<small style="color:var(--text-muted)">(-10%)</small>' : ''}</span>
+                        <span class="history-meta">Час: ${item.durationStr}</span>
+                    </div>
+                    <div class="history-rate">
+                        ${formatNumber(item.rate)} / год
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function clearForm() {
+        creditsInput.value = '';
+        timeMinInput.value = '';
+        timeHhmmInput.value = '';
+        skipCruiseCheckbox.checked = false;
+        updateResultDisplay(0);
+        clearTimeout(historyTimeout);
+    }
+
+    // Register Service Worker for PWA offline support (inline blob)
+    if ('serviceWorker' in navigator) {
+        const swCode = `
+            self.addEventListener('install', e => e.waitUntil(self.skipWaiting()));
+            self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
+            self.addEventListener('fetch', e => e.respondWith(fetch(e.request).catch(() => new Response('Offline'))));
+        `;
+        const blob = new Blob([swCode], { type: 'application/javascript' });
+        navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(() => {});
+    }
+</script>
+
+</body>
+</html>
