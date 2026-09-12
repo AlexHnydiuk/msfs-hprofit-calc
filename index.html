@@ -9,8 +9,7 @@
     <title>Mission Earnings Calculator</title>
     
     <!-- PWA Manifest embedded via Data URI -->
-    <link rel="manifest" href='data:application/manifest+json,{"name":"Mission Calculator","short_name":"MissionCalc","start_url":".","display":"standalone","background_color":"#121214","theme_color":"#121214","icons":[{"src":"data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>","sizes":"192x192 512x512","type":"image/svg+xml"}]}'>
-
+    <link rel="manifest" href="./manifest.json">
     <style>
         :root {
             --bg-color: #121214;
@@ -508,13 +507,11 @@
 
     // Register Service Worker for PWA offline support (inline blob)
     if ('serviceWorker' in navigator) {
-        const swCode = `
-            self.addEventListener('install', e => e.waitUntil(self.skipWaiting()));
-            self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
-            self.addEventListener('fetch', e => e.respondWith(fetch(e.request).catch(() => new Response('Offline'))));
-        `;
-        const blob = new Blob([swCode], { type: 'application/javascript' });
-        navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(() => {});
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js')
+                .then(reg => console.log('SW registered!', reg))
+                .catch(err => console.error('SW registration failed:', err));
+        });
     }
 </script>
 
