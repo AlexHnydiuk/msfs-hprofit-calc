@@ -8,7 +8,6 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Mission Earnings Calculator</title>
     
-    <!-- PWA Manifest embedded via Data URI -->
     <link rel="manifest" href="./manifest.json">
     <style>
         :root {
@@ -168,6 +167,57 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
 
+        /* Stepper Layout for Time Control */
+        .time-input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+            touch-action: pan-x; /* Забігає конфлікту вертикального скролу сторінки */
+        }
+
+        .time-input-wrapper input {
+            padding-right: 64px; /* Місце під шеврони */
+        }
+
+        .stepper-controls {
+            position: absolute;
+            right: 4px;
+            top: 4px;
+            bottom: 4px;
+            width: 52px;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .btn-chevron {
+            flex: 1;
+            background-color: #383844;
+            border: none;
+            color: var(--text-main);
+            font-size: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            user-select: none;
+            transition: background-color 0.15s;
+        }
+
+        .btn-chevron:first-child {
+            border-top-left-radius: 8px;
+            border-top-right-radius: 8px;
+        }
+
+        .btn-chevron:last-child {
+            border-bottom-left-radius: 8px;
+            border-bottom-right-radius: 8px;
+        }
+
+        .btn-chevron:active {
+            background-color: var(--accent-color);
+        }
+
         /* Checkbox Option */
         .checkbox-group {
             display: flex;
@@ -219,57 +269,6 @@
         .btn-clear:active {
             background-color: rgba(239, 68, 68, 0.1);
         }
-
-        /* History Section */
-        .history-title {
-            font-size: 0.9rem;
-            color: var(--text-muted);
-            margin-bottom: 12px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .history-list {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .history-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background-color: var(--input-bg);
-            padding: 12px 16px;
-            border-radius: 10px;
-            font-size: 0.9rem;
-            border-left: 4px solid var(--color-low);
-        }
-
-        .history-item.status-med { border-left-color: var(--color-med); }
-        .history-item.status-high { border-left-color: var(--color-high); }
-
-        .history-details {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .history-meta {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-        }
-
-        .history-rate {
-            font-weight: 700;
-            font-size: 1rem;
-        }
-
-        .empty-history {
-            text-align: center;
-            color: var(--text-muted);
-            font-size: 0.85rem;
-            padding: 8px 0;
-        }
     </style>
 </head>
 <body>
@@ -294,7 +293,7 @@
             <input type="number" id="credits" inputmode="decimal" placeholder="напр. 250000" autocomplete="off">
         </div>
 
-        <!-- Duration Mode Selector & Input -->
+        <!-- Duration Mode Selector & Input with Stepper -->
         <div class="form-group">
             <label>Тривалість місії</label>
             <div class="time-toggle-container">
@@ -302,8 +301,15 @@
                 <button type="button" class="time-toggle-btn" id="mode-hhmm-btn" onclick="setTimeMode('hhmm')">Год : Хв (HH:MM)</button>
             </div>
             
-            <input type="number" id="time-min" inputmode="numeric" placeholder="напр. 45 (хв)" autocomplete="off">
-            <input type="text" id="time-hhmm" inputmode="numeric" placeholder="01:30" autocomplete="off" style="display: none;">
+            <div class="time-input-wrapper" id="time-wheel-container">
+                <input type="number" id="time-min" inputmode="numeric" placeholder="45 (хв)" autocomplete="off">
+                <input type="text" id="time-hhmm" inputmode="numeric" placeholder="00:45" autocomplete="off" style="display: none;">
+                
+                <div class="stepper-controls">
+                    <button type="button" class="btn-chevron" onclick="stepTime(15)" aria-label="Збільшити на 15 хв">▲</button>
+                    <button type="button" class="btn-chevron" onclick="stepTime(-15)" aria-label="Зменшити на 15 хв">▼</button>
+                </div>
+            </div>
         </div>
 
         <!-- Checkbox Options -->
@@ -318,19 +324,10 @@
         <!-- Actions -->
         <button class="btn-clear" onclick="clearForm()">Очистити</button>
     </div>
-
-    <!-- History -->
-    <div class="card">
-        <div class="history-title">Історія останніх 3 розрахунків</div>
-        <div class="history-list" id="history-list">
-            <div class="empty-history">Немає збережених розрахунків</div>
-        </div>
-    </div>
 </div>
 
 <script>
     let timeMode = 'min'; // 'min' або 'hhmm'
-    let history = [];
 
     // DOM Elements
     const creditsInput = document.getElementById('credits');
@@ -338,7 +335,7 @@
     const timeHhmmInput = document.getElementById('time-hhmm');
     const skipCruiseCheckbox = document.getElementById('skip-cruise');
     const resultDisplay = document.getElementById('result-display');
-    const historyList = document.getElementById('history-list');
+    const timeWheelContainer = document.getElementById('time-wheel-container');
 
     // Event Listeners
     creditsInput.addEventListener('input', calculate);
@@ -351,12 +348,16 @@
         document.getElementById('mode-min-btn').classList.toggle('active', mode === 'min');
         document.getElementById('mode-hhmm-btn').classList.toggle('active', mode === 'hhmm');
 
+        const currentMins = getDurationInMinutes();
+
         if (mode === 'min') {
             timeMinInput.style.display = 'block';
             timeHhmmInput.style.display = 'none';
+            if (currentMins > 0) timeMinInput.value = currentMins;
         } else {
             timeMinInput.style.display = 'none';
             timeHhmmInput.style.display = 'block';
+            if (currentMins > 0) timeHhmmInput.value = minutesToHhmm(currentMins);
         }
         calculate();
     }
@@ -365,6 +366,79 @@
         skipCruiseCheckbox.checked = !skipCruiseCheckbox.checked;
         calculate();
     }
+
+    // Direct Minute Helper Functions
+    function getDurationInMinutes() {
+        if (timeMode === 'min') {
+            return parseInt(timeMinInput.value, 10) || 0;
+        } else {
+            const val = timeHhmmInput.value;
+            if (!val) return 0;
+            if (!val.includes(':')) return parseInt(val, 10) || 0;
+            const parts = val.split(':');
+            return ((parseInt(parts[0], 10) || 0) * 60) + (parseInt(parts[1], 10) || 0);
+        }
+    }
+
+    function setDurationInMinutes(totalMins) {
+        const mins = Math.max(15, totalMins); // Мінімально 15 хвилин
+        if (timeMode === 'min') {
+            timeMinInput.value = mins;
+        } else {
+            timeHhmmInput.value = minutesToHhmm(mins);
+        }
+        calculate();
+    }
+
+    function minutesToHhmm(totalMins) {
+        const hrs = Math.floor(totalMins / 60);
+        const mins = totalMins % 60;
+        return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+    }
+
+    // Stepper (+/- 15 min)
+    function stepTime(deltaMinutes) {
+        const currentMins = getDurationInMinutes();
+        let newMins;
+        
+        if (currentMins === 0) {
+            newMins = deltaMinutes > 0 ? 15 : 15;
+        } else {
+            newMins = currentMins + deltaMinutes;
+        }
+        
+        setDurationInMinutes(newMins);
+    }
+
+    // Touch Wheel (Swipe Up/Down Gesture) & Mouse Scroll
+    let touchStartY = 0;
+    const swipeThreshold = 25; // Поріг в пікселях для спрацювання кроку
+
+    timeWheelContainer.addEventListener('touchstart', (e) => {
+        touchStartY = e.touches[0].clientY;
+    }, { passive: true });
+
+    timeWheelContainer.addEventListener('touchend', (e) => {
+        const touchEndY = e.changedTouches[0].clientY;
+        const diffY = touchStartY - touchEndY;
+
+        if (Math.abs(diffY) > swipeThreshold) {
+            if (diffY > 0) {
+                stepTime(15);  // Свайп вгору -> збільшити
+            } else {
+                stepTime(-15); // Свайп вниз -> зменшити
+            }
+        }
+    }, { passive: true });
+
+    timeWheelContainer.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        if (e.deltaY < 0) {
+            stepTime(15);
+        } else {
+            stepTime(-15);
+        }
+    }, { passive: false });
 
     // Auto-format HH:MM input
     function handleHhmmInput(e) {
@@ -380,21 +454,8 @@
     }
 
     function parseDurationInHours() {
-        if (timeMode === 'min') {
-            const mins = parseFloat(timeMinInput.value);
-            return (mins && mins > 0) ? mins / 60 : 0;
-        } else {
-            const val = timeHhmmInput.value;
-            if (!val.includes(':')) {
-                const mins = parseFloat(val);
-                return (mins && mins > 0) ? mins / 60 : 0;
-            }
-            const parts = val.split(':');
-            const hrs = parseInt(parts[0], 10) || 0;
-            const mins = parseInt(parts[1], 10) || 0;
-            const totalMins = (hrs * 60) + mins;
-            return totalMins > 0 ? totalMins / 60 : 0;
-        }
+        const mins = getDurationInMinutes();
+        return mins > 0 ? mins / 60 : 0;
     }
 
     function calculate() {
@@ -413,9 +474,6 @@
 
         const hourlyRate = Math.round(finalCredits / durationHours);
         updateResultDisplay(hourlyRate);
-
-        // Збереження в історію при повному вводі
-        saveToHistoryThrottled(rawCredits, durationHours, finalCredits, hourlyRate, skipCruiseCheckbox.checked);
     }
 
     function updateResultDisplay(rate) {
@@ -437,75 +495,15 @@
         return num.toLocaleString('en-US').replace(/,/g, ' ');
     }
 
-    // Debounce для запізнення додавання в історію під час набору
-    let historyTimeout = null;
-    function saveToHistoryThrottled(rawCredits, durationHours, finalCredits, hourlyRate, isSkip) {
-        clearTimeout(historyTimeout);
-        historyTimeout = setTimeout(() => {
-            addToHistory(rawCredits, durationHours, hourlyRate, isSkip);
-        }, 1200); // Додає в історію, якщо користувач зупинив ввід на 1.2 сек
-    }
-
-    function addToHistory(credits, durationHours, rate, isSkip) {
-        const durationMin = Math.round(durationHours * 60);
-        const newItem = {
-            id: Date.now(),
-            credits: credits,
-            durationStr: `${durationMin} хв`,
-            rate: rate,
-            isSkip: isSkip
-        };
-
-        // Запобігання дублюванню однакових підряд записів
-        if (history.length > 0) {
-            const last = history[0];
-            if (last.credits === newItem.credits && last.rate === newItem.rate && last.isSkip === newItem.isSkip) {
-                return;
-            }
-        }
-
-        history.unshift(newItem);
-        if (history.length > 3) {
-            history.pop();
-        }
-        renderHistory();
-    }
-
-    function renderHistory() {
-        if (history.length === 0) {
-            historyList.innerHTML = '<div class="empty-history">Немає збережених розрахунків</div>';
-            return;
-        }
-
-        historyList.innerHTML = history.map(item => {
-            let statusClass = 'status-low';
-            if (item.rate >= 200000 && item.rate <= 500000) statusClass = 'status-med';
-            if (item.rate > 500000) statusClass = 'status-high';
-
-            return `
-                <div class="history-item ${statusClass}">
-                    <div class="history-details">
-                        <span><strong>${formatNumber(item.credits)}</strong> CR ${item.isSkip ? '<small style="color:var(--text-muted)">(-10%)</small>' : ''}</span>
-                        <span class="history-meta">Час: ${item.durationStr}</span>
-                    </div>
-                    <div class="history-rate">
-                        ${formatNumber(item.rate)} / год
-                    </div>
-                </div>
-            `;
-        }).join('');
-    }
-
     function clearForm() {
         creditsInput.value = '';
         timeMinInput.value = '';
         timeHhmmInput.value = '';
         skipCruiseCheckbox.checked = false;
         updateResultDisplay(0);
-        clearTimeout(historyTimeout);
     }
 
-    // Register Service Worker for PWA offline support (inline blob)
+    // Register Service Worker
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('./sw.js')
