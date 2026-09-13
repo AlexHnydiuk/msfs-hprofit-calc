@@ -20,9 +20,9 @@
             --accent-color: #4f46e5;
             
             /* Status colors */
-            --color-low: #a1a1aa;     /* < 200k (Сірий) */
-            --color-med: #22c55e;     /* 200k-500k (Зелений) */
-            --color-high: #f59e0b;    /* > 500k (Золотий/Яскравий) */
+            --color-low: #a1a1aa;     /* < 200k (Grey) */
+            --color-med: #22c55e;     /* 200k-500k (Green) */
+            --color-high: #f59e0b;    /* > 500k (bright gold) */
         }
 
         * {
@@ -172,11 +172,11 @@
             position: relative;
             display: flex;
             align-items: center;
-            touch-action: pan-x; /* Забігає конфлікту вертикального скролу сторінки */
+            touch-action: pan-x; /* avoid page vertical scroll on swipe up/down */
         }
 
         .time-input-wrapper input {
-            padding-right: 64px; /* Місце під шеврони */
+            padding-right: 64px; /* for chevrons */
         }
 
         .stepper-controls {
@@ -275,12 +275,12 @@
 
 <div class="app-container">
     <header>
-        <h1>Калькулятор Місій</h1>
+        <h1>Credits calculator</h1>
     </header>
 
     <!-- Main Result Display -->
     <div class="card result-card" id="result-card">
-        <div class="result-label">Прибуток за годину</div>
+        <div class="result-label">Profit</div>
         <div class="result-value status-low" id="result-display">0</div>
         <div class="result-unit">Credits / hr</div>
     </div>
@@ -289,25 +289,25 @@
     <div class="card">
         <!-- Credits Input -->
         <div class="form-group">
-            <label for="credits">Сума винагороди (Credits)</label>
+            <label for="credits">Estimate payout (Credits)</label>
             <input type="number" id="credits" inputmode="decimal" placeholder="напр. 250000" autocomplete="off">
         </div>
 
         <!-- Duration Mode Selector & Input with Stepper -->
         <div class="form-group">
-            <label>Тривалість місії</label>
+            <label>Mission duration</label>
             <div class="time-toggle-container">
-                <button type="button" class="time-toggle-btn active" id="mode-min-btn" onclick="setTimeMode('min')">Хвилини</button>
-                <button type="button" class="time-toggle-btn" id="mode-hhmm-btn" onclick="setTimeMode('hhmm')">Год : Хв (HH:MM)</button>
+                <button type="button" class="time-toggle-btn" id="mode-min-btn" onclick="setTimeMode('min')">Minutes</button>
+                <button type="button" class="time-toggle-btn active" id="mode-hhmm-btn" onclick="setTimeMode('hhmm')">HH:MM</button>
             </div>
             
             <div class="time-input-wrapper" id="time-wheel-container">
-                <input type="number" id="time-min" inputmode="numeric" placeholder="45 (хв)" autocomplete="off">
-                <input type="text" id="time-hhmm" inputmode="numeric" placeholder="00:45" autocomplete="off" style="display: none;">
+                <input type="number" id="time-min" inputmode="numeric" placeholder="45 (хв)" autocomplete="off" style="display: none;">
+                <input type="text" id="time-hhmm" inputmode="numeric" placeholder="00:45" autocomplete="off" >
                 
                 <div class="stepper-controls">
-                    <button type="button" class="btn-chevron" onclick="stepTime(15)" aria-label="Збільшити на 15 хв">▲</button>
-                    <button type="button" class="btn-chevron" onclick="stepTime(-15)" aria-label="Зменшити на 15 хв">▼</button>
+                    <button type="button" class="btn-chevron" onclick="stepTime(15)" aria-label="Add 15 min">▲</button>
+                    <button type="button" class="btn-chevron" onclick="stepTime(-15)" aria-label="Subtract 15 min">▼</button>
                 </div>
             </div>
         </div>
@@ -316,18 +316,18 @@
         <div class="checkbox-group" onclick="toggleCheckbox()">
             <input type="checkbox" id="skip-cruise" onclick="event.stopPropagation()">
             <div>
-                <span class="checkbox-label">Skip Cruise (-10%)</span>
-                <span class="checkbox-subtext">Відрахувати 10% для чистих грошей</span>
+                <span class="checkbox-label">Skip Cruise</span>
+                <span class="checkbox-subtext">Subtract 70% from payout</span>
             </div>
         </div>
 
         <!-- Actions -->
-        <button class="btn-clear" onclick="clearForm()">Очистити</button>
+        <button class="btn-clear" onclick="clearForm()">Reset</button>
     </div>
 </div>
 
 <script>
-    let timeMode = 'min'; // 'min' або 'hhmm'
+    let timeMode = 'hhmm'; // 'min' або 'hhmm'
 
     // DOM Elements
     const creditsInput = document.getElementById('credits');
@@ -381,7 +381,7 @@
     }
 
     function setDurationInMinutes(totalMins) {
-        const mins = Math.max(15, totalMins); // Мінімально 15 хвилин
+        const mins = Math.max(15, totalMins); // minimum mission length is 15 min
         if (timeMode === 'min') {
             timeMinInput.value = mins;
         } else {
@@ -412,7 +412,7 @@
 
     // Touch Wheel (Swipe Up/Down Gesture) & Mouse Scroll
     let touchStartY = 0;
-    const swipeThreshold = 25; // Поріг в пікселях для спрацювання кроку
+    const swipeThreshold = 25; 
 
     timeWheelContainer.addEventListener('touchstart', (e) => {
         touchStartY = e.touches[0].clientY;
@@ -424,9 +424,9 @@
 
         if (Math.abs(diffY) > swipeThreshold) {
             if (diffY > 0) {
-                stepTime(15);  // Свайп вгору -> збільшити
+                stepTime(15); 
             } else {
-                stepTime(-15); // Свайп вниз -> зменшити
+                stepTime(-15);
             }
         }
     }, { passive: true });
@@ -469,7 +469,7 @@
 
         let finalCredits = rawCredits;
         if (skipCruiseCheckbox.checked) {
-            finalCredits *= 0.9; // Віднімаємо 10%
+            finalCredits *= 0.3; // subtract 70%
         }
 
         const hourlyRate = Math.round(finalCredits / durationHours);
@@ -479,7 +479,6 @@
     function updateResultDisplay(rate) {
         resultDisplay.textContent = formatNumber(rate);
 
-        // Колірна індикація
         resultDisplay.classList.remove('status-low', 'status-med', 'status-high');
 
         if (rate < 200000) {
